@@ -4,10 +4,10 @@
     "type": "module",
     "main": "crypto.mjs",
     "bin": {
-        "coinmage": "./crypto.mjs"
+        "coinmage": "./coinMage.mjs"
     },
     "scripts": {
-        "start": "node crypto.mjs"
+        "start": "node coinMage.mjs"
     },
     "dependencies": {
         "chalk": "^5.4.1",
