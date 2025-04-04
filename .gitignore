@@ -27,3 +27,8 @@ dist/
 
 # Optional: lockfile (if using yarn or pnpm instead)
 package-lock.json
+
+# Misc
+inquirer
+ora
+node-fetch
