@@ -92,11 +92,11 @@ const getCoinData = async (coinId) => {
     console.log(`${chalk.bold(data.name)} (${data.symbol.toUpperCase()})`);
     console.log(`──────────────────────────────────────────────────────────────────────────────`);
     console.log(`Rank:             ${data.market_cap_rank}`);
-    console.log(`Price:            ${chalk.green(`$${m.current_price.usd.toLocaleString()}`)}`);
+    console.log(`Price:            ${chalk.green(`$${m.current_price.usd.toString()}`)}`);
     console.log(`24h Change:       ${m.price_change_percentage_24h?.toFixed(2) ?? '0.00'}%`);
-    console.log(`Market Cap:       $${m.market_cap.usd.toLocaleString()}`);
-    console.log(`Volume (24h):     $${m.total_volume.usd.toLocaleString()}`);
-    console.log(`Circulating Supply: ${m.circulating_supply.toLocaleString()} ${data.symbol.toUpperCase()}`);
+    console.log(`Market Cap:       $${m.market_cap.usd.toString()}`);
+    console.log(`Volume (24h):     $${m.total_volume.usd.toString()}`);
+    console.log(`Circulating Supply: ${m.circulating_supply.toString()} ${data.symbol.toUpperCase()}`);
     console.log(`──────────────────────────────────────────────────────────────────────────────\n`);
   } catch (err) {
     spinner.fail('Failed to fetch coin data');
@@ -112,7 +112,7 @@ const showTopCoins = async () => {
     spinner.succeed('Top 10 Coins:');
     console.log(`──────────────────────────────────────────────────────────────────────────────`);
     coins.forEach((c, i) => {
-      console.log(`${i + 1}. ${chalk.bold(c.name)} (${c.symbol.toUpperCase()}) — $${c.current_price.toLocaleString()}`);
+      console.log(`${i + 1}. ${chalk.bold(c.name)} (${c.symbol.toUpperCase()}) — $${c.current_price.toString()}`);
     });
     console.log(`──────────────────────────────────────────────────────────────────────────────\n`);
   } catch (err) {
