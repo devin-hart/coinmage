@@ -1,19 +1,29 @@
 {
     "name": "coinmage",
-    "version": "1.0.0",
+    "version": "1.1.0",
+    "description": "A terminal-based crypto watcher CLI for real-time prices, trends, and watchlists.",
+    "main": "coinMage.mjs",
     "type": "module",
-    "main": "crypto.mjs",
-    "bin": {
-        "coinmage": "./coinMage.mjs"
-    },
     "scripts": {
-        "start": "node coinMage.mjs"
+      "watch": "node coinMage.mjs --watch btc eth"
     },
+    "keywords": [
+      "crypto",
+      "cli",
+      "terminal",
+      "watchlist",
+      "cryptocurrency",
+      "coin",
+      "price",
+      "coingecko"
+    ],
+    "author": "wizardbeard",
+    "license": "MIT",
     "dependencies": {
-        "chalk": "^5.4.1",
-        "figlet": "^1.8.0",
-        "inquirer": "^8.2.4",
-        "node-fetch": "^3.3.2",
-        "ora": "^8.2.0"
+      "chalk": "^5.3.0",
+      "cli-table3": "^0.6.3",
+      "node-fetch": "^3.3.2",
+      "ora": "^6.1.2"
     }
-}
+  }
+  
