@@ -13,13 +13,14 @@ const API_BASE = 'https://api.coingecko.com/api/v3';
 let coinListCache = [];
 let lastCoinListFetch = 0;
 
+const WATCHLIST_DIR = path.resolve('./watchlists');
+
 const preloadCoinList = async () => {
   if (coinListCache.length) return;
   const res = await fetch(`${API_BASE}/coins/list`);
   coinListCache = await res.json();
+  lastCoinListFetch = Date.now();
 };
-
-
 
 const showTitle = () => {
   console.clear();
@@ -34,18 +35,10 @@ const showTitle = () => {
   `));
 };
 
-
-
 const parseArgs = () => {
   const args = process.argv.slice(2);
-  const options = { coin: null, exitAfter: false, watchCoins: [], watchlist: null };
-
+  const options = { coin: null, exitAfter: false, watchCoins: [] };
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--watchlist' && args[i + 1]) {
-      options.watchlist = args[i + 1];
-      i++;
-      continue;
-    }
     const arg = args[i];
     if (arg === '-c' && args[i + 1]) {
       options.coin = args[i + 1];
@@ -57,7 +50,6 @@ const parseArgs = () => {
       break;
     }
   }
-
   return options;
 };
 
@@ -66,11 +58,11 @@ const fetchCoinList = async () => {
   if (coinListCache.length && (now - lastCoinListFetch < 10 * 60 * 1000)) {
     return coinListCache;
   }
-  if (coinListCache.length) return coinListCache;
   const spinner = ora('Fetching coin list...').start();
   try {
     const res = await fetch(`${API_BASE}/coins/list`);
     coinListCache = await res.json();
+    lastCoinListFetch = Date.now();
     spinner.succeed(`Loaded ${coinListCache.length} coins.`);
     return coinListCache;
   } catch (err) {
@@ -80,43 +72,33 @@ const fetchCoinList = async () => {
 };
 
 const resolveCoinId = async (input) => {
-    const coins = await fetchCoinList();
-    const normalized = input.toLowerCase();
-  
-    const preferredSymbols = {
-      btc: 'bitcoin',
-      eth: 'ethereum',
-      sol: 'solana',
-      ltc: 'litecoin',
-      ada: 'cardano'
-    };
-    if (preferredSymbols[normalized]) return preferredSymbols[normalized];
-  
-    // First try symbol match
-    const symbolMatch = coins.find(c => c.symbol.toLowerCase() === normalized);
-    if (symbolMatch) return symbolMatch.id;
-  
-    // Then try ID match
-    const idMatch = coins.find(c => c.id.toLowerCase() === normalized);
-    if (idMatch) return idMatch.id;
-  
-    // Then try name match
-    const nameMatch = coins.find(c => c.name.toLowerCase() === normalized);
-    return nameMatch ? nameMatch.id : null;
+  const coins = await fetchCoinList();
+  const normalized = input.toLowerCase();
+  const preferredSymbols = {
+    btc: 'bitcoin', eth: 'ethereum', sol: 'solana', ltc: 'litecoin', ada: 'cardano'
   };
-
-const formatPrice = (val) => {
-    return `$${val.toString()}`;
+  if (preferredSymbols[normalized]) return preferredSymbols[normalized];
+  const symbolMatch = coins.find(c => c.symbol.toLowerCase() === normalized);
+  if (symbolMatch) return symbolMatch.id;
+  const idMatch = coins.find(c => c.id.toLowerCase() === normalized);
+  if (idMatch) return idMatch.id;
+  const nameMatch = coins.find(c => c.name.toLowerCase() === normalized);
+  return nameMatch ? nameMatch.id : null;
 };
 
+const formatPrice = (val) => {
+  if (val === null || val === undefined) return '-';
+  if (typeof val !== 'number') val = Number(val) || 0;
+  let formatted = val >= 1 ? val.toFixed(2) : val > 0.0001 ? val.toFixed(4) : val > 0 ? val.toPrecision(4) : val.toFixed(2);
+  if (formatted.includes('.')) formatted = formatted.replace(/0+$/g, '').replace(/\.$/, '');
+  return `$${formatted}`;
+};
 
-const WATCHLIST_DIR = path.resolve('./watchlists');
-
-const saveWatchlist = async (name, symbols) => {
-  await fs.mkdir(WATCHLIST_DIR, { recursive: true });
-  const filePath = path.join(WATCHLIST_DIR, `${name}.json`);
-  await fs.writeFile(filePath, JSON.stringify(symbols, null, 2), 'utf8');
-  console.log(chalk.green(`Watchlist '${name}' saved.`));
+const formatChange = (val) => {
+  if (val === null || val === undefined) return '-';
+  const fixed = val.toFixed(2);
+  const sign = val > 0 ? '+' : '';
+  return chalk[val > 0 ? 'green' : val < 0 ? 'red' : 'gray'](`${sign}${fixed}%`);
 };
 
 const loadWatchlist = async (name) => {
@@ -130,16 +112,6 @@ const loadWatchlist = async (name) => {
   }
 };
 
-
-
-const formatChange = (val) => {
-  if (val === null || val === undefined) return '-';
-  const fixed = val.toFixed(2);
-  const sign = val > 0 ? '+' : '';
-  return chalk[val > 0 ? 'green' : val < 0 ? 'red' : 'gray'](`${sign}${fixed}%`);
-};
-
-
 const getCoinData = async (coinId) => {
   const spinner = ora(`Fetching data for ${coinId}...`).start();
   try {
@@ -151,7 +123,6 @@ const getCoinData = async (coinId) => {
       spinner.fail('No price data available.');
       return;
     }
-
     spinner.succeed(`Data fetched: ${data.name}`);
 
     console.log(`\n──────────────────────────────────────────────────────────────────────────────`);
@@ -194,14 +165,10 @@ const showTrendingCoins = async () => {
     const data = await res.json();
     spinner.succeed('Trending Coins:');
     console.log(`──────────────────────────────────────────────────────────────────────────────`);
-    
-
     data.coins.forEach((c, i) => {
       const coin = c.item;
       console.log(`${i + 1}. ${chalk.bold(coin.name)} (${coin.symbol.toUpperCase()}) — Rank: ${coin.market_cap_rank}`);
     });
-
-
     console.log(`──────────────────────────────────────────────────────────────────────────────\n`);
   } catch (err) {
     spinner.fail('Failed to fetch trending coins');
@@ -209,18 +176,12 @@ const showTrendingCoins = async () => {
   }
 };
 
-
-
-
-
-
 const showHelp = () => {
   console.log(`──────────────────────────────────────────────────────────────────────────────`);
   console.log(chalk.cyanBright(`Available Commands:`));
   console.log(`${chalk.yellow('/top')}        Show top 10 coins by market cap`);
   console.log(`${chalk.yellow('/trending')}   Show trending coins on CoinGecko`);
   console.log(`${chalk.yellow('/watch')}      Start a live watch table with selected coin symbols`);
-  console.log(`${chalk.yellow('/save NAME')}  Save current watchlist to watchlists/NAME.json`);
   console.log(`${chalk.yellow('/load NAME')}  Load and watch a saved watchlist`);
   console.log(`${chalk.yellow('/list')}       List all saved watchlists`);
   console.log(`${chalk.yellow('/help')}       Show this help message`);
@@ -229,11 +190,6 @@ const showHelp = () => {
   console.log(chalk.cyanBright(`You can also search by coin name or symbol, like "btc", "solana", "doge"`));
   console.log(`──────────────────────────────────────────────────────────────────────────────\n`);
 };
-
-
-
-
-
 
 const promptUser = async () => {
   const { input } = await inquirer.prompt([{
@@ -244,103 +200,96 @@ const promptUser = async () => {
   return input;
 };
 
-
-
-
 const showWatch = async (initialSymbols) => {
-  let symbols = [...initialSymbols.map(s => s.toLowerCase())];
-
-  const readlineModule = await import('readline');
-  readlineModule.emitKeypressEvents(process.stdin);
-
+  const symbols = initialSymbols.map(s => s.toLowerCase());
+  try {
+    await fetchCoinList();
+  } catch (err) {
+    console.error(chalk.red(`Error loading coin list: ${err.message}`));
+    return;
+  }
+  const ids = (await Promise.all(symbols.map(resolveCoinId))).filter(Boolean);
+  if (ids.length === 0) {
+    console.log(chalk.red('No valid coins found.'));
+    return;
+  }
+  // Set up keypress events for watch mode
+  const readline = await import('readline');
+  readline.emitKeypressEvents(process.stdin);
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
   }
 
-  const rl = readlineModule.createInterface({
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
   });
-
-  let exitRequested = false;
-
-  process.stdin.on('keypress', (str) => {
-    if (str === 'x') {
+  
+  rl.input.setRawMode(true);
+  readline.emitKeypressEvents(rl.input);
+  
+  rl.input.on('keypress', (str, key) => {
+    if (key.name === 'x') {
       exitRequested = true;
-      process.stdin.setRawMode(false);
+      rl.input.setRawMode(false);
       rl.close();
+    } else if (key.ctrl && key.name === 'c') {
+      rl.input.setRawMode(false);
+      rl.close();
+      process.exit();
     }
   });
-
-  const REFRESH_INTERVAL = 60;
-
-  const renderTable = async () => {
-    const resolvedIds = await Promise.all(symbols.map(resolveCoinId));
-    const ids = resolvedIds.filter(Boolean);
-    if (ids.length === 0) {
-      console.log(chalk.red('No valid coins found.'));
-      return;
+  let exitRequested = false;
+  // Handle key presses in watch mode
+  const handleKeypress = (_, key) => {
+    if (key.name === 'x') {
+      exitRequested = true;
+    } else if (key.ctrl && key.name === 'c') {
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      console.log(chalk.yellow('\nExiting...'));
+      process.exit(0);
     }
-
+  };
+  process.stdin.on('keypress', handleKeypress);
+  const REFRESH_INTERVAL = 60;
+  const renderTable = async () => {
     const url = `${API_BASE}/coins/markets?vs_currency=usd&ids=${ids.join(',')}&price_change_percentage=1h,24h,7d,30d`;
-
     try {
       const res = await fetch(url);
       const data = await res.json();
-
       console.clear();
       const now = new Date();
-      console.log(`\n${chalk.magentaBright('Live Coin Watch')} (Last updated at ${now.toLocaleTimeString()})`);
-      console.log(chalk.gray("Press 'x' or CTRL + C to exit.\n"));
-      
-const table = new Table({
-  head: [
-    chalk.bold('Name'),
-    chalk.bold('Symbol'),
-    chalk.bold('Price'),
-    chalk.bold('1h %'),
-    chalk.bold('24h %'),
-    chalk.bold('7d %'),
-    chalk.bold('30d %')
-  ],
-  colAligns: ['left', 'left', 'right', 'right', 'right', 'right', 'right'],
-  style: {
-    head: ['cyan'],
-    border: ['gray']
-  }
-});
-
-
+      console.log(chalk.magentaBright('Live Coin Watch') + ` (Last updated at ${now.toLocaleTimeString()})`);
+      console.log();
+      const table = new Table({
+        head: ['Name', 'Symbol', 'Price', '1h%', '24h%', '7d%', '30d%'].map(h => chalk.cyan.bold(h)),
+        colAligns: ['left', 'left', 'right', 'right', 'right', 'right', 'right'],
+        colWidths: [18, 7, 12, 8, 8, 8, 8],
+        wordWrap: true,
+        style: { border: ['gray'] }
+      });
       data.forEach(c => {
         table.push([
-        c.name,
-        c.symbol.toUpperCase(),
+          c.name,
+          c.symbol.toUpperCase(),
           formatPrice(c.current_price),
-        formatChange(c.price_change_percentage_1h_in_currency),
+          formatChange(c.price_change_percentage_1h_in_currency),
           formatChange(c.price_change_percentage_24h_in_currency),
           formatChange(c.price_change_percentage_7d_in_currency),
           formatChange(c.price_change_percentage_30d_in_currency),
         ]);
       });
-
       console.log(table.toString());
       console.log(chalk.gray("Press 'x' or CTRL + C to exit."));
     } catch (err) {
       console.log(chalk.red('Failed to load data:'), err.message);
     }
   };
-
   await renderTable();
-
-
-
-  // Regular refresh loop
   while (!exitRequested) {
-    for (let i = 0; i < REFRESH_INTERVAL; i++) {
-      if (exitRequested) break;
+    for (let i = 0; i < REFRESH_INTERVAL && !exitRequested; i++) {
       const filled = Math.floor((i / REFRESH_INTERVAL) * 20);
-      const empty = 20 - filled;
-      const bar = '█'.repeat(filled) + '░'.repeat(empty);
+      const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
       const secondsLeft = REFRESH_INTERVAL - i;
       process.stdout.write(`\rNext refresh in: [${bar}] ${secondsLeft}s `);
       await new Promise(res => setTimeout(res, 1000));
@@ -349,29 +298,31 @@ const table = new Table({
       await renderTable();
     }
   }
-
-  console.log(chalk.green('\nExited watch view.'));
+  process.stdin.removeListener('keypress', handleKeypress);
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(false);
+  }
+  if (process.stdout.isTTY) process.stdout.write('\r\x1b[2K');  // Clear progress bar line
+  console.log(chalk.green('Exited watch view.'));
 };
 
-
 const main = async () => {
-    const args = parseArgs();
+  const args = parseArgs();
+  let lastWatchSymbols = [];
   if (args.watchlist) {
     const symbols = await loadWatchlist(args.watchlist);
     if (symbols) {
       await preloadCoinList();
+      lastWatchSymbols = symbols;
       await showWatch(symbols);
-      
     }
   }
-
   if (args.watchCoins.length) {
     await preloadCoinList();
+    lastWatchSymbols = args.watchCoins;
     await showWatch(args.watchCoins);
   }
-
   showTitle();
-
   if (args.coin) {
     const resolved = await resolveCoinId(args.coin);
     if (resolved) {
@@ -381,12 +332,9 @@ const main = async () => {
     }
     if (args.exitAfter) return;
   }
-
   console.log(chalk.cyanBright('Welcome to CoinMage!'));
   showHelp();
-
-  let lastWatchSymbols = [];
-while (true) {
+  while (true) {
     try {
       const input = await promptUser();
       const rawInput = input?.trim();
@@ -394,9 +342,7 @@ while (true) {
         console.log(chalk.red('No input received. Try again.'));
         continue;
       }
-
       const [command, ...commandArgs] = rawInput.toLowerCase().split(/\s+/);
-
       switch (command) {
         case '/list':
           try {
@@ -414,7 +360,6 @@ while (true) {
             console.log(chalk.red("Failed to list watchlists:"), err.message);
           }
           break;
-
         case '/save':
           if (commandArgs.length === 0) {
             console.log(chalk.red("Usage: /save mylist"));
@@ -422,7 +367,6 @@ while (true) {
             await saveWatchlist(commandArgs[0], lastWatchSymbols);
           }
           break;
-
         case '/load':
           if (commandArgs.length === 0) {
             console.log(chalk.red("Usage: /load mylist"));
@@ -434,7 +378,6 @@ while (true) {
             }
           }
           break;
-
         case '/exit':
           console.log('\nExiting CoinMage. Happy trails.\n');
           return;
@@ -451,6 +394,7 @@ while (true) {
           if (commandArgs.length === 0) {
             console.log(chalk.red("Usage: /watch btc eth sol ..."));
           } else {
+            lastWatchSymbols = commandArgs;
             await showWatch(commandArgs);
           }
           break;
