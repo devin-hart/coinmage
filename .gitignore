@@ -34,3 +34,4 @@ ora
 node-fetch
 .cache/
 .coinmage_history
+watchlists/portfolio.json
