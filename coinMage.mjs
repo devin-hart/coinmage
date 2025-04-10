@@ -307,19 +307,18 @@ const showWatch = async (initialSymbols) => {
 };
 
 const main = async () => {
+  await fs.mkdir(WATCHLIST_DIR, { recursive: true });
+
   const args = parseArgs();
-  let lastWatchSymbols = [];
   if (args.watchlist) {
     const symbols = await loadWatchlist(args.watchlist);
     if (symbols) {
       await preloadCoinList();
-      lastWatchSymbols = symbols;
       await showWatch(symbols);
     }
   }
   if (args.watchCoins.length) {
     await preloadCoinList();
-    lastWatchSymbols = args.watchCoins;
     await showWatch(args.watchCoins);
   }
   showTitle();
@@ -360,20 +359,12 @@ const main = async () => {
             console.log(chalk.red("Failed to list watchlists:"), err.message);
           }
           break;
-        case '/save':
-          if (commandArgs.length === 0) {
-            console.log(chalk.red("Usage: /save mylist"));
-          } else {
-            await saveWatchlist(commandArgs[0], lastWatchSymbols);
-          }
-          break;
         case '/load':
           if (commandArgs.length === 0) {
             console.log(chalk.red("Usage: /load mylist"));
           } else {
             const symbols = await loadWatchlist(commandArgs[0]);
             if (symbols) {
-              lastWatchSymbols = symbols;
               await showWatch(symbols);
             }
           }
@@ -394,7 +385,6 @@ const main = async () => {
           if (commandArgs.length === 0) {
             console.log(chalk.red("Usage: /watch btc eth sol ..."));
           } else {
-            lastWatchSymbols = commandArgs;
             await showWatch(commandArgs);
           }
           break;
