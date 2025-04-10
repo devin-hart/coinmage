@@ -84,7 +84,8 @@ const resolveCoinId = async (input) => {
         eth: 'ethereum',
         sol: 'solana',
         ltc: 'litecoin',
-        ada: 'cardano'
+        ada: 'cardano',
+        trump: 'official-trump'
     };
     if (preferredSymbols[normalized]) return preferredSymbols[normalized];
     const symbolMatch = coins.find(c => c.symbol.toLowerCase() === normalized);
